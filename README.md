@@ -33,7 +33,87 @@ http://127.0.0.1:8000/api/v1/auth/token/
 
 `
 {
+
 "username": "string",
+
 "confirmation_code": "string"
+
 }
 `
+## CATEGORIES
+
+### Получение списка всех категорий
+
+`GET` http://127.0.0.1:8000/api/v1/categories/
+
+### Добавление новой категории
+
+`POST` http://127.0.0.1:8000/api/v1/categories/
+
+`{
+
+"name": "string",
+
+"slug": "string"
+
+}`
+
+### Удаление категории
+
+`DELETE` http://127.0.0.1:8000/api/v1/categories/{slug}/
+
+## GENRES
+
+### Получение списка всех жанров
+
+`GET` http://127.0.0.1:8000/api/v1/genres/
+
+### Добавление жанра
+
+`POST` http://127.0.0.1:8000/api/v1/genres/
+
+### Удаление жанра
+
+`DELETE` http://127.0.0.1:8000/api/v1/genres/{slug}/
+
+## TITLES
+
+### Получение списка всех произведений
+
+`GET` http://127.0.0.1:8000/api/v1/titles/
+
+### Добавление произведения
+
+`POST` http://127.0.0.1:8000/api/v1/titles/
+
+`{
+
+"name": "string",
+
+"year": 0,
+
+"description": "string",
+
+"genre": [
+
+"string"
+],
+
+"category": "string"
+
+}`
+
+### Получение информации о произведении
+
+`GET` http://127.0.0.1:8000/api/v1/titles/{titles_id}/
+
+### Частичное обновление информации о произведении
+
+`PATCH` http://127.0.0.1:8000/api/v1/titles/{titles_id}/
+
+### Удаление произведения
+
+`DELETE` http://127.0.0.1:8000/api/v1/titles/{titles_id}/
+
+
+
