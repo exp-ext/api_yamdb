@@ -30,14 +30,7 @@ from .serializers import (CategorySerializer, CommentSerializer,
 User = get_user_model()
 
 
-class MixinViewSet(viewsets.GenericViewSet,
-                    mixins.CreateModelMixin,
-                    mixins.ListModelMixin,
-                    mixins.DestroyModelMixin,
-                    ):
-    pass
-
-class SignupView(APIView):
+class SignupViewSet(APIView):
     """
     Получить код подтверждения на переданный email.
 
@@ -55,8 +48,7 @@ class SignupView(APIView):
         """
         serializer = SignupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = User.objects.get_or_create(**serializer.validated_data)[0]
-        user.save()
+        user, _ = User.objects.get_or_create(**serializer.validated_data)
         confirmation_code = default_token_generator.make_token(user)
         self.send_message(user, confirmation_code)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -80,12 +72,12 @@ class SignupView(APIView):
         send_mail(
             'Код подтверждения для получения токена на YaMDB',
             massage,
-            'from@example.com',
+            settings.EMAIL_HOST_USER,
             (user.email,)
         )
 
 
-class TokenView(APIView):
+class TokenViewSet(APIView):
     """
         Получение JWT-токена в обмен на username и confirmation code.
 
@@ -108,7 +100,10 @@ class TokenView(APIView):
         if default_token_generator.check_token(user, confirmation_code):
             token = AccessToken.for_user(user)
             return Response({'token': f'{token}'}, status=status.HTTP_200_OK)
-        return Response('Неверный Confirmation_code!', status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            'Неверный Confirmation_code!',
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class UserViewSet(ModelViewSet):
@@ -126,7 +121,7 @@ class UserViewSet(ModelViewSet):
         Поля email и username должны быть уникальными.
         PATCH: /users/{username}/
     Удаление пользователя по username: Администратор
-        DELETE: /users/{username}/    
+        DELETE: /users/{username}/
     """
     permission_classes = (IsAdmin,)
     serializer_class = UserSerializer
@@ -135,13 +130,15 @@ class UserViewSet(ModelViewSet):
     filter_backends = (filters.SearchFilter,)
     search_fields = ('username',)
 
-    @action(methods=['GET', 'PATCH'], detail=False, 
+    @action(methods=('GET', 'PATCH'), detail=False,
             permission_classes=(IsAuthenticated,))
     def me(self, request: HttpRequest) -> HttpResponse:
         """
-        Получение данных своей учетной записи: Любой авторизованный пользователь
+        Получение данных своей учетной записи:
+        Любой авторизованный пользователь
             GET: /users/me/
-        Изменение данных своей учетной записи: Любой авторизованный пользователь        
+        Изменение данных своей учетной записи:
+        Любой авторизованный пользователь
             PATCH: /users/me/
         Поля email и username должны быть уникальными.
         """
@@ -149,14 +146,20 @@ class UserViewSet(ModelViewSet):
         if request.method == 'GET':
             serializer = UserSerializer(user)
             return Response(serializer.data)
-        elif request.method == 'PATCH':            
-            serializer = CustomUserSerializer(user, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = CustomUserSerializer(
+            user,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class CategoryViewSet(MixinViewSet):
+class CategoryViewSet(viewsets.GenericViewSet,
+                      mixins.CreateModelMixin,
+                      mixins.ListModelMixin,
+                      mixins.DestroyModelMixin):
     """
     Категории (типы) произведений.
 
@@ -171,12 +174,16 @@ class CategoryViewSet(MixinViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     pagination_class = LimitOffsetPagination
-    permission_classes = (IsAdminOrReadOnly,)    
+    permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter, )
     lookup_field = 'slug'
     search_fields = ('name',)
 
-class GenreViewSet(MixinViewSet):
+
+class GenreViewSet(viewsets.GenericViewSet,
+                   mixins.CreateModelMixin,
+                   mixins.ListModelMixin,
+                   mixins.DestroyModelMixin):
     """
     Категории жанров.
 
@@ -191,7 +198,7 @@ class GenreViewSet(MixinViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     pagination_class = LimitOffsetPagination
-    permission_classes = (IsAdminOrReadOnly,)    
+    permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter, )
     lookup_field = 'slug'
     search_fields = ('name',)
@@ -220,7 +227,7 @@ class TitleViewSet(ModelViewSet):
     queryset = Title.objects.annotate(rating=Avg('reviews__score')).all()
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = LimitOffsetPagination
-    filter_backends = (DjangoFilterBackend,) 
+    filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilterSet
 
     def get_serializer_class(self) -> ModelSerializer:
@@ -249,13 +256,13 @@ class ReviewViewSet(ModelViewSet):
 
     def get_queryset(self) -> QuerySet:
         """Возвращает отзывы."""
-        title_id = self.kwargs.get("title_id")
+        title_id = self.kwargs.get('title_id')
         title = get_object_or_404(Title, id=title_id)
         return title.reviews.all()
 
     def perform_create(self, serializer: ModelSerializer) -> None:
         """Создаёт отзыв в БД."""
-        title_id = self.kwargs.get("title_id")
+        title_id = self.kwargs.get('title_id')
         title = get_object_or_404(Title, pk=title_id)
         serializer.save(author=self.request.user, title=title)
 
@@ -281,12 +288,12 @@ class CommentViewSet(ModelViewSet):
 
     def get_queryset(self) -> QuerySet:
         """Возвращает комментарий."""
-        review_id = self.kwargs.get("review_id")
+        review_id = self.kwargs.get('review_id')
         review = get_object_or_404(Review, id=review_id)
         return review.comments.all()
 
     def perform_create(self, serializer: ModelSerializer) -> None:
         """Создаёт комментарий в БД."""
-        review_id = self.kwargs.get("review_id")
+        review_id = self.kwargs.get('review_id')
         review = get_object_or_404(Review, pk=review_id)
         serializer.save(author=self.request.user, review=review)
